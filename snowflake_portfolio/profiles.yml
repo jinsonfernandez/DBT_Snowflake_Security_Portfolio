@@ -1,0 +1,16 @@
+config:
+  send_anonymous_usage_stats: false
+  use_colors: true
+portfolio_tracking:
+  outputs:
+    dev:
+      account: degreed.west-us-2.azure
+      database: staging
+      password: abc123
+      role: dbt
+      schema: jfernandez_rpt
+      threads: 6
+      type: snowflake
+      user: jfernandez
+      warehouse: reporting_small
+  target: dev

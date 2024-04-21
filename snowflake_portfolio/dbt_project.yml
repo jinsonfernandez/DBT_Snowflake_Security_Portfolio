@@ -1,0 +1,62 @@
+
+# Name your project! Project names should contain only lowercase characters
+# and underscores. A good package name should reflect your organization's
+# name or the intended use of these models
+name: 'snowflake_portfolio'
+version: '1.0.0'
+config-version: 2
+
+# This setting configures which "profile" dbt uses for this project.
+profile: 'portfolio_tracking'
+
+# These configurations specify where dbt should look for different types of files.
+# The `model-paths` config, for example, states that models in this project can be
+# found in the "models/" directory. You probably won't need to change these!
+model-paths: ["models"]
+analysis-paths: ["analyses"]
+test-paths: ["tests"]
+seed-paths: ["seeds"]
+macro-paths: ["macros"]
+snapshot-paths: ["snapshots"]
+
+clean-targets:         # directories to be removed by `dbt clean`
+  - "target"
+  - "dbt_packages"
+
+
+# Configuring models
+# Full documentation: https://docs.getdbt.com/docs/configuring-models
+
+# In this example config, we tell dbt to build all models in the example/
+# directory as views. These settings can be overridden in the individual model
+# files using the `{{ config(...) }}` macro.
+models:
+  snowflake_portfolio:
+    +materialized: view
+    staging:
+      +materialized: view
+      +sechema: STAGING
+    refined:
+      +materialized: view
+      +sechema: REFINED
+      +database: |
+        {%- if 'release' in target.name or 'staging' in target.name or 'beta' in target.name or target.name == 'reporting_team' or 'learn_in' in target.name and target.name not in ('beta_us2', 'eu2_beta') -%} {{ target.database }}
+        {%- else -%} analytics
+        {%- endif -%}
+      +pre-hook:
+        - "{%- if target.name in ('staging','release','beta') and target.account == 'degreed.west-us-2.azure' and target.user|lower == 'airflow' %} use warehouse {{ identify_warehouse(this.name) }}; {% endif %}"
+    marts:
+      portfolio:
+        materialized: table
+        +sechema: mart_portfolio
+        +pre-hook:
+          - "{%- if target.name in ('staging','release','beta') and target.account == 'degreed.west-us-2.azure' and target.user|lower == 'airflow' %} use warehouse {{ identify_warehouse(this.name) }}; {% endif %}"
+          - "{%- if 'europe' in target.account %} {{ create_masking_policy_grant_permissions() }} {% endif %}"
+          - "{%- if 'europe' in target.account %} {{ dbt_snow_mask.create_masking_policy('models') }} {% endif %}"
+        +post-hook:
+          - "{%- if 'europe' in target.account %} {{ dbt_snow_mask.apply_masking_policy('models') }} {% endif %}"
+
+snapshots:
+  snowflake_portfolio:
+    +target_schema
+
